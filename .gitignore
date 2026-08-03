@@ -1,0 +1,24 @@
+# Environments
+venv/
+env/
+.env
+.venv
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.pytest_cache/
+.ruff_cache/
+
+# Data and Logs
+data/
+logs/
+*.log
+vectorstore/
+
+# Frontend
+frontend/node_modules/
+frontend/dist/
+frontend/.DS_Store
