@@ -2,6 +2,9 @@
 
 A production-ready, highly modular Retrieval-Augmented Generation (RAG) system built with Clean Architecture. It features a modern, Claude-inspired React frontend and a powerful FastAPI backend.
 
+<img width="1834" height="960" alt="image" src="https://github.com/user-attachments/assets/ee0125c8-677d-4d48-8771-8b84c88558a5" />
+
+
 ## Features
 - **Multi-Source Ingestion**: Upload PDF, DOCX, TXT, Markdown files, or **paste Web Links** for automatic scraping.
 - **Hybrid Search**: Combines Dense (Semantic) and Sparse (BM25 Keyword) retrieval using Reciprocal Rank Fusion (RRF) for highly accurate answers.
