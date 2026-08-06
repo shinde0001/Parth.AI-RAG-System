@@ -22,10 +22,27 @@ def upload_document(
     raw_path = Path(settings.data_raw_path)
     raw_path.mkdir(parents=True, exist_ok=True)
     
-    file_path = raw_path / file.filename
+    # Check max 10 documents limit
+    existing_docs = [p for p in raw_path.iterdir() if p.is_file()]
+    if len(existing_docs) >= 10:
+        raise HTTPException(status_code=400, detail="Maximum limit of 10 uploaded documents reached.")
+    
+    # Sanitize filename to prevent Path Traversal attacks
+    safe_filename = Path(file.filename).name
+    file_path = raw_path / safe_filename
+    
+    # Check file size limit (max 250MB) during write
+    max_size = 250 * 1024 * 1024
+    saved_size = 0
     
     with open(file_path, "wb") as buffer:
-        shutil.copyfileobj(file.file, buffer)
+        while chunk := file.file.read(8192):
+            saved_size += len(chunk)
+            if saved_size > max_size:
+                buffer.close()
+                file_path.unlink(missing_ok=True)
+                raise HTTPException(status_code=400, detail="File too large. Maximum size is 250MB.")
+            buffer.write(chunk)
         
     try:
         document_id = ingestion_service.ingest_file(str(file_path))

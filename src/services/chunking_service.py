@@ -19,6 +19,8 @@ class ChunkingService:
         
         chunks = []
         for text in text_chunks:
+            if not text.strip():
+                continue
             # Inherit document metadata
             chunk_metadata = document.metadata.copy()
             chunk_metadata["filename"] = document.filename

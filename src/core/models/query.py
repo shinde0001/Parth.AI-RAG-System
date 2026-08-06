@@ -15,6 +15,7 @@ class Query:
     text: str
     top_k: int = 5
     similarity_threshold: float = 0.3
+    filter_document_ids: list[str] | None = None
     
 @dataclass
 class QueryResult:

@@ -30,9 +30,18 @@ class RetrievalService:
         
         # 1. Semantic Search (Dense)
         query_embedding = self.embedding_model.embed_query(query.text)
+        
+        filter_metadata = None
+        if query.filter_document_ids:
+            if len(query.filter_document_ids) == 1:
+                filter_metadata = {"document_id": query.filter_document_ids[0]}
+            else:
+                filter_metadata = {"document_id": {"$in": query.filter_document_ids}}
+
         semantic_results = self.vector_store.search(
             query_embedding=query_embedding, 
-            top_k=settings.semantic_top_k
+            top_k=settings.semantic_top_k,
+            filter_metadata=filter_metadata
         )
         logger.debug("semantic_search_complete", hits=len(semantic_results))
         
@@ -44,6 +53,8 @@ class RetrievalService:
             query=query.text,
             top_k=settings.bm25_top_k
         )
+        if query.filter_document_ids:
+            bm25_results = [r for r in bm25_results if r.chunk.document_id in query.filter_document_ids]
         logger.debug("bm25_search_complete", hits=len(bm25_results))
         
         # 3. Reciprocal Rank Fusion (RRF) — merge both lists

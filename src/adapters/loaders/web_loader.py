@@ -13,6 +13,10 @@ class WebLoaderAdapter(DocumentLoaderPort):
     """Adapter for loading and parsing content from Web URLs."""
     
     def load(self, url: str) -> Document:
+        # SSRF / LFI Protection: Only allow standard HTTP/HTTPS schemes
+        if not url.startswith(("http://", "https://")):
+            raise ValueError("Invalid URL scheme. Only HTTP and HTTPS are allowed.")
+        
         try:
             req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
             with urllib.request.urlopen(req, timeout=10) as response:

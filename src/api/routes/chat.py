@@ -9,6 +9,7 @@ class ChatRequest(BaseModel):
     query: str = Field(..., min_length=1, max_length=2000)
     top_k: int = Field(default=5, ge=1, le=20)
     temperature: float = Field(default=0.1, ge=0.0, le=2.0)
+    document_ids: list[str] | None = None
 
 class SourceDocumentResponse(BaseModel):
     filename: str
@@ -28,7 +29,8 @@ def chat(request: ChatRequest, chat_service: ChatServiceDep):
         chat_response = chat_service.chat(
             query_text=request.query,
             top_k=request.top_k,
-            temperature=request.temperature
+            temperature=request.temperature,
+            document_ids=request.document_ids
         )
     except ValueError as e:
         raise HTTPException(status_code=422, detail=str(e)) from e
