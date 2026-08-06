@@ -1,4 +1,4 @@
-# Parth.AI - Enterprise RAG Dashboard
+# Parth.AI - AI Chatbot using RAG
 
 A production-ready, highly modular Retrieval-Augmented Generation (RAG) system built with Clean Architecture. It features a modern, Claude-inspired React frontend and a powerful FastAPI backend.
 
