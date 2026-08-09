@@ -1,4 +1,6 @@
 import structlog
+from src.core.exceptions import RetrievalError
+from src.config import constants
 
 from src.config.settings import settings
 from src.core.models.query import Query, SearchResult
@@ -25,7 +27,16 @@ class RetrievalService:
         self.reranker = reranker
 
     def retrieve(self, query: Query) -> list[SearchResult]:
-        """Retrieves relevant chunks using hybrid search + reranking."""
+        """Retrieves relevant chunks using hybrid search + optional reranking.
+        Validates the query and raises RetrievalError on failure.
+        """
+        # Basic query validation
+        if not isinstance(query, Query):
+            raise RetrievalError("retrieve expects a Query instance")
+        if not isinstance(query.text, str) or not query.text.strip():
+            raise RetrievalError("Query text must be a non‑empty string")
+        if query.top_k <= 0:
+            raise RetrievalError("Query top_k must be positive")
         logger.info("starting_retrieval", query=query.text, top_k=query.top_k)
         
         # 1. Semantic Search (Dense)
@@ -49,16 +60,20 @@ class RetrievalService:
         semantic_results = [r for r in semantic_results if r.score >= query.similarity_threshold]
         
         # 2. BM25 Search (Sparse/Keyword)
-        bm25_results = self.bm25_retriever.search(
-            query=query.text,
-            top_k=settings.bm25_top_k
-        )
+        try:
+            bm25_results = self.bm25_retriever.search(
+                query=query.text,
+                top_k=settings.bm25_top_k,
+            )
+        except Exception as exc:
+            raise RetrievalError(f"BM25 retriever failed: {exc}")
         if query.filter_document_ids:
             bm25_results = [r for r in bm25_results if r.chunk.document_id in query.filter_document_ids]
         logger.debug("bm25_search_complete", hits=len(bm25_results))
         
         # 3. Reciprocal Rank Fusion (RRF) — merge both lists
-        fused_results = self._reciprocal_rank_fusion(semantic_results, bm25_results, k=60)
+        # Use centralized RRF_K constant
+        fused_results = self._reciprocal_rank_fusion(semantic_results, bm25_results, k=constants.RRF_K)
         
         # 4. Rerank the top candidates with cross-encoder
         if self.reranker and fused_results:
@@ -71,7 +86,13 @@ class RetrievalService:
             return reranked
         
         # Fallback: no reranker, just return top-k from RRF
-        return fused_results[:query.top_k]
+        # Enforce a safe maximum return size
+        max_k = min(query.top_k, constants.MAX_RETURN_K)
+        return fused_results[:max_k]
+
+    async def retrieve_async(self, query: Query) -> list[SearchResult]:
+        """Async wrapper for :meth:`retrieve`."""
+        return self.retrieve(query)
 
     def _reciprocal_rank_fusion(
         self, 

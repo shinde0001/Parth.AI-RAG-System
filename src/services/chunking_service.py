@@ -1,4 +1,6 @@
 import uuid
+from src.config import constants
+from src.core.exceptions import ChunkingError
 
 from src.config.settings import settings
 from src.core.models.document import Chunk, Document
@@ -11,10 +13,20 @@ class ChunkingService:
         self.chunk_size = chunk_size
         self.overlap = overlap
         # Ordered from largest semantic boundary to smallest
-        self.separators = ["\n\n", "\n", ". ", " ", ""]
+        self.separators = constants.DEFAULT_SEPARATORS
+
+    async def chunk_document_async(self, document: Document) -> list[Chunk]:
+        """Async wrapper for :meth:`chunk_document`."""
+        return self.chunk_document(document)
 
     def chunk_document(self, document: Document) -> list[Chunk]:
-        """Splits a document into multiple chunks."""
+        """Splits a document into multiple chunks.
+        Validates input and raises ChunkingError on failure.
+        """
+        if not isinstance(document, Document):
+            raise ChunkingError("chunk_document expects a Document instance")
+        if not isinstance(document.content, str) or not document.content:
+            raise ChunkingError("Document content must be a non‑empty string")
         text_chunks = self._split_text(document.content, self.separators)
         
         chunks = []
@@ -24,14 +36,17 @@ class ChunkingService:
             # Inherit document metadata
             chunk_metadata = document.metadata.copy()
             chunk_metadata["filename"] = document.filename
-            chunks.append(
-                Chunk(
-                    chunk_id=str(uuid.uuid4()),
-                    document_id=document.document_id,
-                    text=text,
-                    metadata=chunk_metadata
+            try:
+                chunks.append(
+                    Chunk(
+                        chunk_id=str(uuid.uuid4()),
+                        document_id=document.document_id,
+                        text=text,
+                        metadata=chunk_metadata,
+                    )
                 )
-            )
+            except Exception as exc:
+                raise ChunkingError(f"Failed to create Chunk: {exc}")
         return chunks
 
     def _split_text(self, text: str, separators: list[str]) -> list[str]:

@@ -1,6 +1,7 @@
 from pathlib import Path
 
 import structlog
+from src.core.exceptions import ChunkingError
 
 from src.adapters.loaders.docx_loader import DocxLoaderAdapter
 from src.adapters.loaders.markdown_loader import MarkdownLoaderAdapter
@@ -60,18 +61,24 @@ class IngestionService:
         return self._process_document(document)
 
     def ingest_file(self, file_path: str) -> str:
-        """Ingests a file through the full RAG pipeline."""
+        """Ingests a file through the full RAG pipeline.
+        Handles empty or unreadable content gracefully.
+        """
         path = Path(file_path)
         ext = path.suffix.lower()
         
         # Default to text loader for text-based files if not explicitly mapped
         loader = self.loaders.get(ext, self.loaders[".txt"])
-            
+        
         logger.info("starting_ingestion", file=path.name)
         
         # 1. Load document
         document = loader.load(str(path))
-        return self._process_document(document)
+        try:
+            return self._process_document(document)
+        except ChunkingError as ce:
+            # Convert to a user‑friendly HTTP error
+            raise ValueError(str(ce)) from ce
 
     def _process_document(self, document) -> str:
         logger.info("document_loaded", doc_id=document.document_id, size=len(document.content))
